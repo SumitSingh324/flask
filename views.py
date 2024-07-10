@@ -118,7 +118,5 @@ def update_password(token):
         return render_template("login.html")
 
 
-
-
 if __name__ == "__main__":
     app.run(debug=True)
