@@ -24,10 +24,13 @@ def loader_user(user_id):
 
 @app.route("/", methods=['GET','POST'])
 def index():
-    if request.method=='GET':
+    if current_user.is_authenticated:
+        return redirect(url_for("home"))
+
+    elif request.method=='GET':
         return render_template("index.html")
+
     else:
-        breakpoint()
         password=request.form.get("password")
         user = User(name=request.form.get("name"),password=bcrypt.generate_password_hash(password).decode('utf-8'), email=request.form.get("email"))
         db.session.add(user)
@@ -36,38 +39,45 @@ def index():
 
 @app.route("/login", methods=['GET','POST'])
 def login():
-    if request.method=='GET':
+    if current_user.is_authenticated:
+        return redirect(url_for("home"))
+
+    elif request.method=='GET':
         return render_template("login.html")
+
     else:
-        # breakpoint()
         user = User.query.filter_by(email=request.form.get("email")).first()
         if user:
             if bcrypt.check_password_hash(user.password, request.form.get("password")):
                 db.session.add(user)
                 db.session.commit()
-                login_user(user,remember=False)
-                session["id"] = user.id
-                return redirect(url_for("home"))
+                if login_user(user,remember=False):
+                    flash("logged in", "success")
+                    return redirect(url_for("home"))
+                else:
+                    return "Failed to log in"
             else:
-                return "Password is not matched"
-        else:
-            return "User is not present"
-
-@login_required
+                flash("Wrong Credentials", "warning")
+                return render_template("login.html")
+        
 @app.route("/home")
 def home():
-    #  breakpoint()
-     if not session.get("id"):
-        flash("please login","404")
-        return redirect("/login")
-     else:
+    if current_user.is_authenticated:
         return render_template("home.html")
+    else:
+        flash("Please log in first", "info")
+        return redirect(url_for("login"))
+
+# @login_manager.unauthorized_handler
+# def unauthorized():
+#     flash("You must be logged in to access this page.", "error")
+#     return redirect(url_for("login"))
+
 
 @app.route("/logout")
+@login_required
 def logout():
-    # breakpoint()
     logout_user()
-    session.clear()
     return redirect("/login")
 
 @app.route("/forgot")
@@ -77,7 +87,6 @@ def forgot_password():
 
 @app.route("/send", methods=['GET','POST'])
 def send_email():
-    # breakpoint()
     email = request.form.get('email')
     user=User.query.filter_by(email=email).first()
     if user:
@@ -89,19 +98,27 @@ def send_email():
         token = generate_confirmation_token(email)
         msg.body = f"http://127.0.0.1:5000/update/{token}"
         mail.send(msg) 
-        return "Reset link has been sent"
+        flash("Reset link has been sent on your mail", "success")
+        return render_template("login.html")
     else:
-        return "Not present"
+        flash("Email is not present", "warning")
+        return render_template("index.html")
 
 @app.route("/update/<token>", methods=['GET','POST'])
 def update_password(token):
     if request.method=='GET':
         return render_template("update_password.html",token=token)
     else:
-        # breakpoint()
         password = request.form.get('password')
         email = confirm_token(token)
         user = User.query.filter_by(email=email).first()
         user.password = bcrypt.generate_password_hash(password).decode('utf-8')
         db.session.commit()
-        return "password has been updated"
+        flash("password has been updated", "success")
+        return render_template("login.html")
+
+
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

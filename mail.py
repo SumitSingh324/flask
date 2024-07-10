@@ -17,12 +17,10 @@ app.config['SECURITY_PASSWORD_SALT']='sumit@123'
 
 
 def generate_confirmation_token(email):
-    # breakpoint()
     serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
     return serializer.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
 
 def confirm_token(token, expiration=3600):
-    # breakpoint()
     serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
     try:
         email = serializer.loads(
